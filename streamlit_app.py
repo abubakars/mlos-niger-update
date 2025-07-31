@@ -17,14 +17,6 @@ if uploaded_file is not None:
         # Read CSV into DataFrame
         df = pd.read_csv(uploaded_file)
 
-        # Check required columns
-        required_columns = {"Name", "LGA", "Latitude", "Longitude"}
-        if not required_columns.issubset(df.columns):
-            st.error(f"CSV must contain the following columns: {required_columns}")
-        else:
-            # Drop rows with missing coordinates
-            df = df.dropna(subset=["Latitude", "Longitude"])
-
             # Display full table
             st.subheader("📊 Uploaded Data")
             st.dataframe(df.reset_index(drop=True))
