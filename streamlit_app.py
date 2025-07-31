@@ -1,61 +1,58 @@
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
+import os
 
-# Set page configuration
-st.set_page_config(page_title="CSV Viewer & Map", layout="wide")
+# Title
+st.title("Collaborative CSV Editor")
 
-# App title
-st.title("📍 CSV Viewer with Map Display")
+# File uploader
+uploaded_file = st.file_uploader("📂 Upload your CSV file", type=["csv"])
 
-# Upload CSV file
-uploaded_file = st.file_uploader("📁 Upload your CSV file", type=["csv"])
+if uploaded_file:
+    # Read CSV
+    df = pd.read_csv(uploaded_file)
+    original_df = df.copy()
 
-# Process file if uploaded
-if uploaded_file is not None:
-    try:
-        # Read CSV into DataFrame
-        df = pd.read_csv(uploaded_file)
+    # Select LGA
+    if "lga_name" in df.columns:
+        lga_options = df["lga_name"].dropna().unique().tolist()
+        selected_lga = st.selectbox("Select LGA", sorted(lga_options))
 
-            # Display full table
-            st.subheader("📊 Uploaded Data")
-            st.dataframe(df.reset_index(drop=True))
+        # Filter by selected LGA
+        df = df[df["lga_name"] == selected_lga]
+    else:
+        st.error("Column `lga_name` not found in CSV.")
+        st.stop()
 
-            # Map Display
-            st.subheader("🗺️ Map of Locations")
-            st.pydeck_chart(
-                pdk.Deck(
-                    map_style="mapbox://styles/mapbox/streets-v11",
-                    initial_view_state=pdk.ViewState(
-                        latitude=df["Latitude"].mean(),
-                        longitude=df["Longitude"].mean(),
-                        zoom=7,
-                        pitch=0,
-                    ),
-                    layers=[
-                        pdk.Layer(
-                            "ScatterplotLayer",
-                            data=df,
-                            get_position="[Longitude, Latitude]",
-                            get_color="[0, 150, 200, 160]",
-                            get_radius=100,
-                        )
-                    ],
-                )
-            )
+    st.markdown("### 🔍 Filtered & Editable Table")
 
-            # Download data
-            st.subheader("⬇️ Download Data")
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="Download CSV",
-                data=csv,
-                file_name="full_data.csv",
-                mime="text/csv",
-            )
+    # Columns that should NOT be editable
+    non_editable_cols = ["lat", "lon", "lga_name", "ward_name"]
+    editable_cols = [col for col in df.columns if col not in non_editable_cols]
 
-    except Exception as e:
-        st.error(f"Error reading CSV file: {e}")
+    # Show editable table
+    edited_df = st.data_editor(
+        df,
+        column_config={col: st.column_config.Column(disabled=True) for col in non_editable_cols if col in df.columns},
+        use_container_width=True,
+        num_rows="dynamic",
+    )
 
-else:
-    st.info("Please upload a CSV file to begin.")
+    # Buttons
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💾 Save back to original file"):
+            # Write to the same file (overwrite)
+            file_path = os.path.join("data", uploaded_file.name)  # you can change this
+            edited_df.to_csv(file_path, index=False)
+            st.success(f"File saved to {file_path}")
+
+    with col2:
+        # Download edited file
+        st.download_button(
+            label="⬇️ Download Edited CSV",
+            data=edited_df.to_csv(index=False).encode("utf-8"),
+            file_name=f"edited_{uploaded_file.name}",
+            mime="text/csv",
+        )
