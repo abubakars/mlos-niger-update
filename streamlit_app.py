@@ -12,7 +12,7 @@ credentials = {
 }
 
 # 🔗 Replace this with YOUR sheet export link
-sheet_url = "https://docs.google.com/spreadsheets/d/1gja9oO9lhLlC8DQshOjPIkRbhFU2nrCE9Kuljs7-6vk/edit?gid=697693047#gid=697693047"
+sheet_url = "https://docs.google.com/spreadsheets/d/1gja9oO9lhLlC8DQshOjPIkRbhFU2nrCE9Kuljs7-6vk/edit?gid=697693047#gid=697693047.csv"
 
 @st.cache_data
 def load_data_from_gsheet(url):
