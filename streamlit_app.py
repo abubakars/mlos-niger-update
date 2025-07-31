@@ -1,36 +1,76 @@
 import streamlit as st
 import pandas as pd
+import pydeck as pdk
 
-st.set_page_config(page_title="CSV Viewer with LGA Filter", layout="wide")
-st.title("📄 CSV Viewer with LGA Filter")
+# Set page config
+st.set_page_config(page_title="LGA CSV Filter & Map", layout="wide")
 
-# 📤 Upload CSV
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+# App title
+st.title("📍 CSV Viewer: Filter by LGA & Map Locations")
 
+# Upload CSV file
+uploaded_file = st.file_uploader("📁 Upload your CSV file", type=["csv"])
+
+# Process file if uploaded
 if uploaded_file is not None:
+    # Read CSV into DataFrame
     try:
         df = pd.read_csv(uploaded_file)
 
-        if "LGA" not in df.columns:
-            st.error("❌ Your CSV must contain a column named 'LGA'.")
+        # Check for required columns
+        required_columns = {"Name", "LGA", "Latitude", "Longitude"}
+        if not required_columns.issubset(df.columns):
+            st.error(f"CSV must contain the following columns: {required_columns}")
         else:
-            st.success("✅ File loaded successfully.")
+            # Drop rows with missing coordinates
+            df = df.dropna(subset=["Latitude", "Longitude"])
 
-            # 🌐 Dropdown to filter by LGA
-            unique_lgas = df["LGA"].dropna().unique()
-            selected_lga = st.selectbox("Filter by LGA:", options=["All"] + sorted(unique_lgas.tolist()))
+            # Sidebar filter
+            lgas = df["LGA"].unique()
+            selected_lga = st.sidebar.selectbox("🏙️ Select LGA to filter", sorted(lgas))
 
-            if selected_lga == "All":
-                filtered_df = df
-            else:
-                filtered_df = df[df["LGA"] == selected_lga]
+            # Filter data by selected LGA
+            filtered_df = df[df["LGA"] == selected_lga]
 
-            st.dataframe(filtered_df)
+            # Display filtered table
+            st.subheader(f"📊 Filtered Data for {selected_lga}")
+            st.dataframe(filtered_df.reset_index(drop=True))
 
-            # 📥 Download button
+            # Map display
+            st.subheader("🗺️ Location Map")
+            st.pydeck_chart(
+                pdk.Deck(
+                    map_style="mapbox://styles/mapbox/streets-v11",
+                    initial_view_state=pdk.ViewState(
+                        latitude=filtered_df["Latitude"].mean(),
+                        longitude=filtered_df["Longitude"].mean(),
+                        zoom=10,
+                        pitch=0,
+                    ),
+                    layers=[
+                        pdk.Layer(
+                            "ScatterplotLayer",
+                            data=filtered_df,
+                            get_position="[Longitude, Latitude]",
+                            get_color="[200, 30, 0, 160]",
+                            get_radius=100,
+                        )
+                    ],
+                )
+            )
+
+            # Download filtered data
+            st.subheader("⬇️ Download Filtered Data")
             csv = filtered_df.to_csv(index=False).encode("utf-8")
-            st.download_button("Download filtered data", data=csv, file_name="filtered_data.csv", mime="text/csv")
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"{selected_lga}_filtered_data.csv",
+                mime="text/csv",
+            )
+
     except Exception as e:
-        st.error(f"⚠️ Error reading CSV: {e}")
+        st.error(f"Error reading CSV file: {e}")
+
 else:
-    st.info("📥 Upload a CSV file to begin.")
+    st.info("Please upload a CSV file to begin.")
