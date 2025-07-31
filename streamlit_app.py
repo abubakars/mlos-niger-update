@@ -14,15 +14,26 @@ if uploaded_file:
     original_df = df.copy()
 
     # Select LGA
-    if "lga_name" in df.columns:
+   if "lga_name" in df.columns and "ward_name" in df.columns:
+    st.markdown("### 🗂️ Filter by LGA and Ward")
+
+    # Column layout for side-by-side filters
+    col1, col2 = st.columns(2)
+
+    with col1:
         lga_options = df["lga_name"].dropna().unique().tolist()
         selected_lga = st.selectbox("Select LGA", sorted(lga_options))
 
-        # Filter by selected LGA
-        df = df[df["lga_name"] == selected_lga]
-    else:
-        st.error("Column `lga_name` not found in CSV.")
-        st.stop()
+    with col2:
+        ward_options = df[df["lga_name"] == selected_lga]["ward_name"].dropna().unique().tolist()
+        selected_ward = st.selectbox("Select Ward", sorted(ward_options))
+
+    # Apply both filters
+    df = df[(df["lga_name"] == selected_lga) & (df["ward_name"] == selected_ward)]
+else:
+    st.error("Columns `lga_name` and/or `ward_name` not found in CSV.")
+    st.stop()
+
 
     st.markdown("### 🔍 Filtered & Editable Table")
 
