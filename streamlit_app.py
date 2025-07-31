@@ -1,18 +1,46 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="CSV Uploader", layout="wide")
-st.title("📤 Upload and View CSV")
+st.set_page_config(page_title="LGA Viewer from Google Sheets", layout="wide")
+st.title("📄 View Google Sheet (Restricted by LGA)")
 
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+# 🔐 Define credentials (username → LGA)
+credentials = {
+    "abubakar": "Lapai",
+    "name2": "Chikun",
+    "name3": "Kaduna South",
+}
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        st.success("✅ File uploaded successfully!")
-        st.subheader("📄 CSV Preview")
-        st.dataframe(df)
-    except Exception as e:
-        st.error(f"❌ Error loading file: {e}")
-else:
-    st.info("👈 Upload a .csv file to get started.")
+# 🔗 Replace this with YOUR sheet export link
+sheet_url = "https://docs.google.com/spreadsheets/d/1gja9oO9lhLlC8DQshOjPIkRbhFU2nrCE9Kuljs7-6vk/edit?gid=843158687#gid=843158687"
+
+@st.cache_data
+def load_data_from_gsheet(url):
+    return pd.read_csv(url)
+
+try:
+    df = load_data_from_gsheet(sheet_url)
+
+    if "LGA" not in df.columns:
+        st.error("❌ Your Google Sheet must contain an 'LGA' column.")
+    else:
+        username = st.text_input("Enter your username (e.g. name1):")
+
+        if username:
+            if username in credentials:
+                user_lga = credentials[username]
+                st.success(f"✅ Access granted for LGA: **{user_lga}**")
+
+                filtered_df = df[df["LGA"] == user_lga]
+                st.subheader("📍 Your LGA Data")
+                st.dataframe(filtered_df)
+
+                # Optional: allow download
+                csv = filtered_df.to_csv(index=False).encode("utf-8")
+                st.download_button("Download your data", data=csv, file_name=f"{user_lga}_data.csv", mime="text/csv")
+            else:
+                st.error("❌ Invalid username.")
+        else:
+            st.info("👈 Enter your username to view data.")
+except Exception as e:
+    st.error(f"⚠️ Failed to load Google Sheet: {e}")
