@@ -1,16 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Restricted CSV Viewer", layout="wide")
-st.title("📤 CSV Upload + 🔒 LGA-Restricted Access")
-
-# 🔐 Define user access (name or email → allowed LGA)
-user_access = {
-    "alice@gmail.com": "Kaduna North",
-    "bob@yahoo.com": "Kaduna South",
-    "charlie@outlook.com": "Chikun",
-    "danjuma@gmail.com": "Kaduna North",
-}
+st.set_page_config(page_title="CSV Viewer with LGA Filter", layout="wide")
+st.title("📄 CSV Viewer with LGA Filter")
 
 # 📤 Upload CSV
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
@@ -19,25 +11,25 @@ if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
 
-        if "Email" not in df.columns or "LGA" not in df.columns:
-            st.error("❌ Your CSV must contain at least 'Email' and 'LGA' columns.")
+        if "LGA" not in df.columns:
+            st.error("❌ Your CSV must contain a column named 'LGA'.")
         else:
-            user_email = st.text_input("Enter your email to access your LGA data:")
+            st.success("✅ File loaded successfully.")
 
-            if user_email:
-                if user_email in user_access:
-                    allowed_lga = user_access[user_email]
-                    st.success(f"✅ Access granted! Showing data for LGA: **{allowed_lga}**")
+            # 🌐 Dropdown to filter by LGA
+            unique_lgas = df["LGA"].dropna().unique()
+            selected_lga = st.selectbox("Filter by LGA:", options=["All"] + sorted(unique_lgas.tolist()))
 
-                    filtered_df = df[df["LGA"] == allowed_lga]
-                    st.dataframe(filtered_df)
-
-                    csv = filtered_df.to_csv(index=False).encode("utf-8")
-                    st.download_button("Download filtered data", data=csv, file_name=f"{allowed_lga}_data.csv", mime="text/csv")
-                else:
-                    st.error("❌ You are not authorized to view this data.")
+            if selected_lga == "All":
+                filtered_df = df
             else:
-                st.info("👈 Enter your email to filter by your assigned LGA.")
+                filtered_df = df[df["LGA"] == selected_lga]
+
+            st.dataframe(filtered_df)
+
+            # 📥 Download button
+            csv = filtered_df.to_csv(index=False).encode("utf-8")
+            st.download_button("Download filtered data", data=csv, file_name="filtered_data.csv", mime="text/csv")
     except Exception as e:
         st.error(f"⚠️ Error reading CSV: {e}")
 else:
