@@ -1,46 +1,44 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="LGA Viewer from Google Sheets", layout="wide")
-st.title("📄 View Google Sheet (Restricted by LGA)")
+st.set_page_config(page_title="Restricted CSV Viewer", layout="wide")
+st.title("📤 CSV Upload + 🔒 LGA-Restricted Access")
 
-# 🔐 Define credentials (username → LGA)
-credentials = {
-    "abubakar": "Lapai",
-    "name2": "Chikun",
-    "name3": "Kaduna South",
+# 🔐 Define user access (name or email → allowed LGA)
+user_access = {
+    "alice@gmail.com": "Kaduna North",
+    "bob@yahoo.com": "Kaduna South",
+    "charlie@outlook.com": "Chikun",
+    "danjuma@gmail.com": "Kaduna North",
 }
 
-# 🔗 Replace this with YOUR sheet export link
-sheet_url = "https://docs.google.com/spreadsheets/d/1DpYV2SRnXiS_dGpnqxl3zKINlTlVm0xUMTNPaNaSEug/edit?gid=0#gid=0"
+# 📤 Upload CSV
+uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
-@st.cache_data
-def load_data_from_gsheet(url):
-    return pd.read_csv(url)
+if uploaded_file is not None:
+    try:
+        df = pd.read_csv(uploaded_file)
 
-try:
-    df = load_data_from_gsheet(sheet_url)
-
-    if "LGA" not in df.columns:
-        st.error("❌ Your Google Sheet must contain an 'LGA' column.")
-    else:
-        username = st.text_input("Enter your username (e.g. name1):")
-
-        if username:
-            if username in credentials:
-                user_lga = credentials[username]
-                st.success(f"✅ Access granted for LGA: **{user_lga}**")
-
-                filtered_df = df[df["LGA"] == user_lga]
-                st.subheader("📍 Your LGA Data")
-                st.dataframe(filtered_df)
-
-                # Optional: allow download
-                csv = filtered_df.to_csv(index=False).encode("utf-8")
-                st.download_button("Download your data", data=csv, file_name=f"{user_lga}_data.csv", mime="text/csv")
-            else:
-                st.error("❌ Invalid username.")
+        if "Email" not in df.columns or "LGA" not in df.columns:
+            st.error("❌ Your CSV must contain at least 'Email' and 'LGA' columns.")
         else:
-            st.info("👈 Enter your username to view data.")
-except Exception as e:
-    st.error(f"⚠️ Failed to load Google Sheet: {e}")
+            user_email = st.text_input("Enter your email to access your LGA data:")
+
+            if user_email:
+                if user_email in user_access:
+                    allowed_lga = user_access[user_email]
+                    st.success(f"✅ Access granted! Showing data for LGA: **{allowed_lga}**")
+
+                    filtered_df = df[df["LGA"] == allowed_lga]
+                    st.dataframe(filtered_df)
+
+                    csv = filtered_df.to_csv(index=False).encode("utf-8")
+                    st.download_button("Download filtered data", data=csv, file_name=f"{allowed_lga}_data.csv", mime="text/csv")
+                else:
+                    st.error("❌ You are not authorized to view this data.")
+            else:
+                st.info("👈 Enter your email to filter by your assigned LGA.")
+    except Exception as e:
+        st.error(f"⚠️ Error reading CSV: {e}")
+else:
+    st.info("📥 Upload a CSV file to begin.")
