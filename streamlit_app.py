@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 from io import StringIO
 
+st.set_page_config(page_title="Niger MLoS", layout="wide")
+
 st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
 
 # --- Load data from GitHub ---
@@ -14,7 +16,7 @@ else:
     st.error("❌ Failed to load data from GitHub")
     st.stop()
 
-# --- Filter Section ---
+# --- Filter by LGA and Ward ---
 st.markdown("### 🔍 Filter by LGA and Ward")
 
 if "lga_name" in df.columns and "ward_name" in df.columns:
@@ -46,7 +48,7 @@ edited_df = st.data_editor(
     key="editable_table"
 )
 
-# --- Merge changes back to full DataFrame (df) ---
+# --- Merge edits into full dataset ---
 if not edited_df.equals(filtered_df):
     st.info("🔄 Updates detected: reflecting edits in the full table.")
     
@@ -60,11 +62,7 @@ if not edited_df.equals(filtered_df):
     # Merge updated section back into main df
     df = pd.concat([df_not_affected, edited_df], ignore_index=True)
 
-# --- Final Updated Table ---
-st.markdown("### 📋 Full Updated Table")
-st.dataframe(df, use_container_width=True)
-
-# --- Download Button for Full Updated Table ---
+# --- Download edited/added data ---
 csv = df.to_csv(index=False).encode("utf-8")
 st.download_button(
     "⬇️ Download Full Updated CSV",
@@ -72,3 +70,8 @@ st.download_button(
     file_name="full_updated_MLOSS.csv",
     mime="text/csv"
 )
+
+# --- Expandable full table view ---
+st.markdown("✅ Edits are applied. You can download or expand the full updated dataset below.")
+with st.expander("📋 Show Full Updated Table"):
+    st.dataframe(df, use_container_width=True)
