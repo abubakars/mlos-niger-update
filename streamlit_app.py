@@ -1,18 +1,16 @@
 import streamlit as st
 import pandas as pd
-st.markdown(
-    "<h1 style='text-align: center; color: #48bbdb;'>Niger MLoS</h1>",
-    unsafe_allow_html=True
-)
-st.markdown("### Upload a CSV file")
+import requests
+from io import StringIO
 
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file)
-        st.success("✅ File successfully uploaded and read.")
-        st.markdown("### Preview of the CSV data:")
-        st.dataframe(df, use_container_width=True)
-    except Exception as e:
-        st.error(f"❌ Error reading the file: {e}")
+raw_url = "https://github.com/abubakars/mlos-niger-data/blob/main/July%20Updated%20QC%20MLoS%202025%20Working%20Sheet%20-%20Harmonized%20(9).csv"
+
+resp = requests.get(raw_url)
+if resp.status_code == 200:
+    df = pd.read_csv(StringIO(resp.text))
+    st.success("Data loaded successfully from GitHub")
+    st.dataframe(df, use_container_width=True)
+else:
+    st.error("Failed to load CSV from GitHub")
