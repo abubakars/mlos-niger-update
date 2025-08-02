@@ -38,46 +38,31 @@ else:
     st.warning("⚠️ Columns 'lga_name' and/or 'ward_name' missing in data.")
     filtered_df = df.copy()
 
-# --- Detect missing values in filtered_df for highlighting ---
-# Empty string or NaN = incomplete
-incomplete_rows = filtered_df.isnull().any(axis=1) | (filtered_df.astype(str).apply(lambda x: x.str.strip() == "").any(axis=1))
-
-# Highlight incomplete rows with yellow
-row_styles = [
-    {"backgroundColor": "#fff3cd"} if missing else {}
-    for missing in incomplete_rows
-]
-
-# --- Editable Table with Row Highlighting ---
+# --- Editable Table ---
 st.markdown("### ✏️ Edit or Add Rows to the Table Below")
 
 edited_df = st.data_editor(
     filtered_df,
-    num_rows="dynamic",
+    num_rows="dynamic",  # allow adding rows
     use_container_width=True,
-    key="editable_table",
-    row_styles=row_styles
+    key="editable_table"
 )
 
-# --- Show alert if incomplete rows exist ---
-if any(incomplete_rows):
-    st.warning("⚠️ Some rows have missing values. Please complete them before final use.")
-
-# --- Merge edits back into full dataset ---
+# --- Merge edits into full dataset ---
 if not edited_df.equals(filtered_df):
-    st.info("🔄 Changes detected — full dataset updated.")
+    st.info("🔄 Updates detected: reflecting edits in the full table.")
     
-    # Remove affected LGA/Ward subset from df
+    # Remove filtered rows from original df
     df_not_affected = df.copy()
     if selected_lga != "All":
         df_not_affected = df_not_affected[df_not_affected["lga_name"] != selected_lga]
     if selected_ward != "All":
         df_not_affected = df_not_affected[df_not_affected["ward_name"] != selected_ward]
 
-    # Combine with edited data
+    # Merge updated section back into main df
     df = pd.concat([df_not_affected, edited_df], ignore_index=True)
 
-# --- Download updated full dataset ---
+# --- Download edited/added data ---
 csv = df.to_csv(index=False).encode("utf-8")
 st.download_button(
     "⬇️ Download Full Updated CSV",
@@ -86,7 +71,7 @@ st.download_button(
     mime="text/csv"
 )
 
-# --- Expandable full updated table ---
-st.markdown("✅ Edits are reflected. View the full updated table below if needed.")
+# --- Expandable full table view ---
+st.markdown("✅ Edits are applied. You can download or expand the full updated dataset below.")
 with st.expander("📋 Show Full Updated Table"):
     st.dataframe(df, use_container_width=True)
