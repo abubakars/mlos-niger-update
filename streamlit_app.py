@@ -5,7 +5,7 @@ from io import StringIO
 
 st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
 
-raw_url = "https://github.com/abubakars/mlos-niger-data/blob/main/July%20Updated%20QC%20MLoS%202025%20Working%20Sheet%20-%20Harmonized%20(9).csv"
+raw_url = "https://github.com/abubakars/mlos-niger-update/blob/main/MLOSS.csv"
 
 resp = requests.get(raw_url)
 if resp.status_code == 200:
