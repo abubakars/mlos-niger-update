@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 st.set_page_config(page_title="Niger MLoS", layout="wide")
-
 st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
 
 # --- Load data from GitHub ---
@@ -16,9 +16,8 @@ else:
     st.error("❌ Failed to load data from GitHub")
     st.stop()
 
-# --- Filter by LGA and Ward ---
+# --- Filter Section ---
 st.markdown("### 🔍 Filter by LGA and Ward")
-
 if "lga_name" in df.columns and "ward_name" in df.columns:
     lga_list = sorted(df["lga_name"].dropna().unique())
     ward_list = sorted(df["ward_name"].dropna().unique())
@@ -35,58 +34,73 @@ if "lga_name" in df.columns and "ward_name" in df.columns:
     if selected_ward != "All":
         filtered_df = filtered_df[filtered_df["ward_name"] == selected_ward]
 else:
-    st.warning("⚠️ Columns 'lga_name' and/or 'ward_name' missing in data.")
+    st.warning("⚠️ Missing columns: 'lga_name' and/or 'ward_name'")
     filtered_df = df.copy()
 
-# --- Detect missing values in filtered_df for highlighting ---
-# Empty string or NaN = incomplete
-incomplete_rows = filtered_df.isnull().any(axis=1) | (filtered_df.astype(str).apply(lambda x: x.str.strip() == "").any(axis=1))
+# --- AG-Grid Config ---
+st.markdown("### ✏️ Edit or Add Rows Below")
 
-# Highlight incomplete rows with yellow
-row_styles = [
-    {"backgroundColor": "#fff3cd"} if missing else {}
-    for missing in incomplete_rows
-]
+gb = GridOptionsBuilder.from_dataframe(filtered_df)
 
-# --- Editable Table with Row Highlighting ---
-st.markdown("### ✏️ Edit or Add Rows to the Table Below")
+# Make all columns editable
+gb.configure_default_column(editable=True, resizable=True, wrapText=True, autoHeight=True)
 
-edited_df = st.data_editor(
+# Allow adding new rows
+gb.configure_grid_options(domLayout='autoHeight')
+
+# JS to highlight rows with empty cells
+highlight_js = JsCode("""
+function(params) {
+    let hasEmpty = false;
+    for (let key in params.data) {
+        if (params.data[key] === null || params.data[key] === '') {
+            hasEmpty = true;
+            break;
+        }
+    }
+    if (hasEmpty) {
+        return { 'backgroundColor': '#fff3cd' };
+    }
+};
+""")
+
+gb.configure_grid_options(getRowStyle=highlight_js)
+
+grid_options = gb.build()
+
+# --- Display editable AG-Grid ---
+grid_response = AgGrid(
     filtered_df,
-    num_rows="dynamic",
-    use_container_width=True,
-    key="editable_table",
-    row_styles=row_styles
+    gridOptions=grid_options,
+    enable_enterprise_modules=False,
+    update_mode='MODEL_CHANGED',
+    data_return_mode='FILTERED_AND_SORTED',
+    fit_columns_on_grid_load=True,
+    allow_unsafe_jscode=True,
+    height=500,
+    reload_data=False
 )
 
-# --- Show alert if incomplete rows exist ---
-if any(incomplete_rows):
-    st.warning("⚠️ Some rows have missing values. Please complete them before final use.")
+edited_df = grid_response["data"]
 
-# --- Merge edits back into full dataset ---
+# --- Update full df with changes ---
 if not edited_df.equals(filtered_df):
-    st.info("🔄 Changes detected — full dataset updated.")
-    
-    # Remove affected LGA/Ward subset from df
+    st.info("🔄 Changes detected and merged into full dataset.")
     df_not_affected = df.copy()
     if selected_lga != "All":
         df_not_affected = df_not_affected[df_not_affected["lga_name"] != selected_lga]
     if selected_ward != "All":
         df_not_affected = df_not_affected[df_not_affected["ward_name"] != selected_ward]
-
-    # Combine with edited data
     df = pd.concat([df_not_affected, edited_df], ignore_index=True)
 
-# --- Download updated full dataset ---
-csv = df.to_csv(index=False).encode("utf-8")
+# --- Download full updated table ---
 st.download_button(
-    "⬇️ Download Full Updated CSV",
-    data=csv,
+    label="⬇️ Download Full Updated CSV",
+    data=df.to_csv(index=False).encode("utf-8"),
     file_name="full_updated_MLOSS.csv",
     mime="text/csv"
 )
 
-# --- Expandable full updated table ---
-st.markdown("✅ Edits are reflected. View the full updated table below if needed.")
+# --- Expandable full table ---
 with st.expander("📋 Show Full Updated Table"):
     st.dataframe(df, use_container_width=True)
