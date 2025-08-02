@@ -1,74 +1,118 @@
 import streamlit as st
 import pandas as pd
 import os
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
-# App title
-st.title("📊 Collaborative CSV Editor")
+st.set_page_config(page_title="Local CSV/XLSX Editor", layout="wide")
 
-# Upload CSV
-uploaded_file = st.file_uploader("📂 Upload your CSV file", type=["csv"])
+# CONFIG
+FILE_PATH = "data.xlsx"  # change to "data.csv" if using CSV
+LOCKED_COLUMNS = ["LGA", "Ward", "Global ID"]
+DROPDOWN_OPTIONS = {
+    "Status": ["Pending", "Complete", "In Progress"],
+    "Category": ["A", "B", "C"]
+}
 
-if uploaded_file:
-    # Load CSV into DataFrame
-    df = pd.read_csv(uploaded_file)
-    original_df = df.copy()
+# --- File Utilities
+def is_csv():
+    return FILE_PATH.lower().endswith(".csv")
 
-    # Validate required columns
-    if "lga_name" not in df.columns or "ward_name" not in df.columns:
-        st.error("CSV must contain both 'lga_name' and 'ward_name' columns.")
-        st.stop()
+@st.cache_data
+def load_data():
+    if is_csv():
+        return pd.read_csv(FILE_PATH)
+    else:
+        return pd.read_excel(FILE_PATH)
 
-    # --- FILTER SECTION ---
-    st.markdown("### 🗂️ Filter by LGA and Ward")
+def save_data(df):
+    if is_csv():
+        df.to_csv(FILE_PATH, index=False)
+    else:
+        with pd.ExcelWriter(FILE_PATH, engine="openpyxl", mode="w") as writer:
+            df.to_excel(writer, sheet_name="Sheet1", index=False)
 
-    col1, col2 = st.columns(2)
+df = load_data()
 
-    with col1:
-        lga_options = df["lga_name"].dropna().unique().tolist()
-        selected_lga = st.selectbox("Select LGA", sorted(lga_options))
+# --- Sidebar Filters
+st.sidebar.header("🔍 Filter")
+lga_filter = st.sidebar.selectbox("Select LGA", ["All"] + sorted(df["LGA"].dropna().unique().tolist()))
+ward_filter = st.sidebar.selectbox("Select Ward", ["All"] + sorted(df["Ward"].dropna().unique().tolist()))
 
-    with col2:
-        ward_options = df[df["lga_name"] == selected_lga]["ward_name"].dropna().unique().tolist()
-        selected_ward = st.selectbox("Select Ward", sorted(ward_options))
+filtered_df = df.copy()
+if lga_filter != "All":
+    filtered_df = filtered_df[filtered_df["LGA"] == lga_filter]
+if ward_filter != "All":
+    filtered_df = filtered_df[filtered_df["Ward"] == ward_filter]
 
-    # Apply both filters
-    df = df[(df["lga_name"] == selected_lga) & (df["ward_name"] == selected_ward)]
+st.title("📄 Local Data Editor")
 
-    st.markdown("### ✏️ Editable Table")
+# --- Editable Grid
+with st.expander("📋 View & Edit Table", expanded=True):
+    editable_cols = [col for col in filtered_df.columns if col not in LOCKED_COLUMNS]
+    gb = GridOptionsBuilder.from_dataframe(filtered_df)
+    gb.configure_columns(LOCKED_COLUMNS, editable=False)
+    for col in editable_cols:
+        if col in DROPDOWN_OPTIONS:
+            gb.configure_column(col, editable=True, cellEditor='agSelectCellEditor',
+                                cellEditorParams={'values': DROPDOWN_OPTIONS[col]})
+        else:
+            gb.configure_column(col, editable=True)
 
-    # Columns that should NOT be editable
-    non_editable_cols = ["lat", "lon", "lga_name", "ward_name"]
-    editable_cols = [col for col in df.columns if col not in non_editable_cols]
+    grid_options = gb.build()
 
-    # Setup column configs for read-only fields
-    column_config = {
-        col: st.column_config.Column(disabled=True) for col in non_editable_cols if col in df.columns
-    }
-
-    # Display editable table
-    edited_df = st.data_editor(
-        df,
-        column_config=column_config,
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editable_table"
+    grid_response = AgGrid(
+        filtered_df,
+        gridOptions=grid_options,
+        update_mode=GridUpdateMode.VALUE_CHANGED,
+        fit_columns_on_grid_load=True,
+        height=500,
+        width='100%',
+        reload_data=False,
     )
 
-    # --- ACTIONS: Save or Download ---
+    updated_df = grid_response["data"]
+
+    if st.button("💾 Save Edits"):
+        full_df = df.copy()
+        for _, row in updated_df.iterrows():
+            match_idx = df[df["Global ID"] == row["Global ID"]].index
+            if not match_idx.empty:
+                for col in editable_cols:
+                    full_df.loc[match_idx, col] = row[col]
+        save_data(full_df)
+        st.success("File updated successfully!")
+        st.rerun()
+
+# --- Add New Row
+st.subheader("➕ Add New Entry")
+
+with st.form("add_new_data_form", clear_on_submit=True):
     col1, col2 = st.columns(2)
-
     with col1:
-        if st.button("💾 Save to Original File"):
-            # Save to disk (optional: change 'data/' path)
-            save_path = os.path.join("data", uploaded_file.name)
-            os.makedirs("data", exist_ok=True)
-            edited_df.to_csv(save_path, index=False)
-            st.success(f"Saved to {save_path}")
-
+        new_lga = st.text_input("LGA (locked)", disabled=True, value=lga_filter if lga_filter != "All" else "")
+        new_ward = st.text_input("Ward (locked)", disabled=True, value=ward_filter if ward_filter != "All" else "")
     with col2:
-        st.download_button(
-            label="⬇️ Download Edited CSV",
-            data=edited_df.to_csv(index=False).encode("utf-8"),
-            file_name=f"edited_{uploaded_file.name}",
-            mime="text/csv"
-        )
+        next_id = int(df["Global ID"].max()) + 1 if "Global ID" in df.columns and not df["Global ID"].isnull().all() else 1
+        new_id = st.text_input("Global ID", value=str(next_id), disabled=True)
+
+    new_data = {}
+    for col in df.columns:
+        if col in LOCKED_COLUMNS:
+            continue
+        if col in DROPDOWN_OPTIONS:
+            new_data[col] = st.selectbox(f"{col}", DROPDOWN_OPTIONS[col])
+        else:
+            new_data[col] = st.text_input(f"{col}")
+
+    submitted = st.form_submit_button("🚀 Add Row")
+    if submitted:
+        new_row = {
+            "LGA": new_lga,
+            "Ward": new_ward,
+            "Global ID": new_id,
+            **new_data
+        }
+        updated_df = df.append(new_row, ignore_index=True)
+        save_data(updated_df)
+        st.success("Row added successfully!")
+        st.rerun()
