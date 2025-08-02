@@ -42,3 +42,22 @@ if submitted:
     st.download_button("⬇️ Download updated CSV", data=csv, file_name="updated_MLOSS.csv", mime="text/csv")
 else:
     st.dataframe(df, use_container_width=True)
+# Filter section
+st.markdown("### 🔍 Filter by LGA and Ward")
+
+# Get unique sorted values
+lga_list = sorted(df["lga_name"].dropna().unique().tolist())
+ward_list = sorted(df["ward_name"].dropna().unique().tolist())
+
+col1, col2 = st.columns(2)
+with col1:
+    selected_lga = st.selectbox("Select LGA", options=["All"] + lga_list)
+with col2:
+    selected_ward = st.selectbox("Select Ward", options=["All"] + ward_list)
+
+# Apply filters
+filtered_df = df.copy()
+if selected_lga != "All":
+    filtered_df = filtered_df[filtered_df["lga_name"] == selected_lga]
+if selected_ward != "All":
+    filtered_df = filtered_df[filtered_df["ward_name"] == selected_ward]
