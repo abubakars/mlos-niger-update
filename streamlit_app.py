@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 st.markdown(
     "<h1 style='text-align: center; color: #48bbdb;'>Niger MLoS</h1>",
     unsafe_allow_html=True
