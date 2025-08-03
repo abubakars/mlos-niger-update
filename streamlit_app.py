@@ -21,22 +21,22 @@ st.markdown("### 🔍 Filter by LGA and Ward")
 
 if "lga_name" in df.columns and "ward_name" in df.columns:
     lga_list = sorted(df["lga_name"].dropna().unique())
-    ward_list = sorted(df["ward_name"].dropna().unique())
-
     col1, col2 = st.columns(2)
     with col1:
         selected_lga = st.selectbox("Select LGA", ["All"] + lga_list)
+    # Filter wards based on selected LGA
+    if selected_lga == "All":
+        filtered_wards = sorted(df["ward_name"].dropna().unique())
+    else:
+        filtered_wards = sorted(df[df["lga_name"] == selected_lga]["ward_name"].dropna().unique())
     with col2:
-        selected_ward = st.selectbox("Select Ward", ["All"] + ward_list)
+        selected_ward = st.selectbox("Select Ward", ["All"] + filtered_wards)
 
     filtered_df = df.copy()
     if selected_lga != "All":
         filtered_df = filtered_df[filtered_df["lga_name"] == selected_lga]
     if selected_ward != "All":
         filtered_df = filtered_df[filtered_df["ward_name"] == selected_ward]
-else:
-    st.warning("⚠️ Columns 'lga_name' and/or 'ward_name' missing in data.")
-    filtered_df = df.copy()
 
 # --- Editable Table ---
 st.markdown("### ✏️ Edit or Add Rows to the Table Below")
