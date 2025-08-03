@@ -4,6 +4,7 @@ import requests
 from io import StringIO
 
 st.set_page_config(page_title="Niger MLoS", layout="wide")
+
 st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
 
 # --- Load data from GitHub ---
@@ -40,8 +41,8 @@ else:
     filtered_df = df.copy()
 
 # --- Status Indicator Column ---
-# TODO: Replace with your actual required columns!
-columns_to_check = ['colA', 'colB', 'colC']  # <--- CHANGE THIS TO YOUR REQUIRED COLUMNS
+# TODO: Change these to your actual required columns!
+columns_to_check = ['colA', 'colB', 'colC']
 
 def row_status(row):
     if any(pd.isna(row[col]) or row[col] == '' for col in columns_to_check):
@@ -49,26 +50,24 @@ def row_status(row):
     else:
         return '<span style="color:green; font-size:1.5em;">●</span>'
 
-# Don't mutate filtered_df in place before editing, use a copy for display
-filtered_df_display = filtered_df.copy()
-filtered_df_display['Status'] = filtered_df_display.apply(row_status, axis=1)
+filtered_df['Status'] = filtered_df.apply(row_status, axis=1)
 
 # --- Editable Table ---
 st.markdown("### ✏️ Edit or Add Rows to the Table Below")
 
+# Show table with colored dots
 st.write("● = Status: Green = Complete, Red = Incomplete")
-st.write(filtered_df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
+st.write(filtered_df.to_html(escape=False), unsafe_allow_html=True)
 
-# Editable table (excluding Status column)
 edited_df = st.data_editor(
-    filtered_df,
+    filtered_df.drop(columns=['Status']),
     num_rows="dynamic",  # allow adding rows
     use_container_width=True,
     key="editable_table"
 )
 
 # --- Merge edits into full dataset ---
-if not edited_df.equals(filtered_df):
+if not edited_df.equals(filtered_df.drop(columns=['Status'])):
     st.info("🔄 Updates detected: reflecting edits in the full table.")
 
     # Remove filtered rows from original df
@@ -88,11 +87,11 @@ st.download_button(
     data=csv,
     file_name="full_updated_MLOSS.csv",
     mime="text/csv"
+)
 
 # --- Expandable full table view ---
 st.markdown("✅ Edits are applied. You can download or expand the full updated dataset below.")
 with st.expander("📋 Show Full Updated Table"):
     # Recompute status for full df
-    df_display = df.copy()
-    df_display['Status'] = df_display.apply(row_status, axis=1)
-    st.write(df_display.to_html(escape=False, index=False), unsafe_allow_html=True)
+    df['Status'] = df.apply(row_status, axis=1)
+    st.write(df.to_html(escape=False), unsafe_allow_html=True)
