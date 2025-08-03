@@ -1,77 +1,18 @@
-import streamlit as st
-import pandas as pd
-import requests
-from io import StringIO
+# ... your code ...
+filtered_df = df.copy()
+if selected_lga != "All":
+    filtered_df = filtered_df[filtered_df["lga_name"] == selected_lga]
+if selected_ward != "All":
+    filtered_df = filtered_df[filtered_df["ward_name"] == selected_ward]
 
-st.set_page_config(page_title="Niger MLoS", layout="wide")
-
-st.markdown("<h1 style='text-align: center;'>Niger MLoS</h1>", unsafe_allow_html=True)
-
-# --- Load data from GitHub ---
-raw_url = "https://raw.githubusercontent.com/abubakars/mlos-niger-update/refs/heads/main/MLoS_Niger.csv"
-resp = requests.get(raw_url)
-if resp.status_code == 200:
-    df = pd.read_csv(StringIO(resp.text))
-else:
-    st.error("❌ Failed to load data from GitHub")
-    st.stop()
-
-# --- Filter by LGA and Ward ---
-st.markdown("### 🔍 Filter by LGA and Ward")
-
-if "lga_name" in df.columns and "ward_name" in df.columns:
-    lga_list = sorted(df["lga_name"].dropna().unique())
-    col1, col2 = st.columns(2)
-    with col1:
-        selected_lga = st.selectbox("Select LGA", ["All"] + lga_list)
-    # Filter wards based on selected LGA
-    if selected_lga == "All":
-        filtered_wards = sorted(df["ward_name"].dropna().unique())
+# ---- Place status code here ----
+columns_to_check = ['colA', 'colB', 'colC']  # <-- change to your columns!
+def row_status(row):
+    if any(pd.isna(row[col]) or row[col] == '' for col in columns_to_check):
+        return '<span style="color:red; font-size:1.5em;">●</span>'
     else:
-        filtered_wards = sorted(df[df["lga_name"] == selected_lga]["ward_name"].dropna().unique())
-    with col2:
-        selected_ward = st.selectbox("Select Ward", ["All"] + filtered_wards)
+        return '<span style="color:green; font-size:1.5em;">●</span>'
+filtered_df['Status'] = filtered_df.apply(row_status, axis=1)
 
-    filtered_df = df.copy()
-    if selected_lga != "All":
-        filtered_df = filtered_df[filtered_df["lga_name"] == selected_lga]
-    if selected_ward != "All":
-        filtered_df = filtered_df[filtered_df["ward_name"] == selected_ward]
-
-# --- Editable Table ---
-st.markdown("### ✏️ Edit or Add Rows to the Table Below")
-
-edited_df = st.data_editor(
-    filtered_df,
-    num_rows="dynamic",  # allow adding rows
-    use_container_width=True,
-    key="editable_table"
-)
-
-# --- Merge edits into full dataset ---
-if not edited_df.equals(filtered_df):
-    st.info("🔄 Updates detected: reflecting edits in the full table.")
-    
-    # Remove filtered rows from original df
-    df_not_affected = df.copy()
-    if selected_lga != "All":
-        df_not_affected = df_not_affected[df_not_affected["lga_name"] != selected_lga]
-    if selected_ward != "All":
-        df_not_affected = df_not_affected[df_not_affected["ward_name"] != selected_ward]
-
-    # Merge updated section back into main df
-    df = pd.concat([df_not_affected, edited_df], ignore_index=True)
-
-# --- Download edited/added data ---
-csv = df.to_csv(index=False).encode("utf-8")
-st.download_button(
-    "⬇️ Download Full Updated CSV",
-    data=csv,
-    file_name="full_updated_MLOSS.csv",
-    mime="text/csv"
-)
-
-# --- Expandable full table view ---
-st.markdown("✅ Edits are applied. You can download or expand the full updated dataset below.")
-with st.expander("📋 Show Full Updated Table"):
-    st.dataframe(df, use_container_width=True)
+# ... now show the table
+st.write(filtered_df.to_html(escape=False), unsafe_allow_html=True)
