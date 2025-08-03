@@ -88,7 +88,6 @@ st.download_button(
     data=csv,
     file_name="full_updated_MLOSS.csv",
     mime="text/csv"
-)
 
 # --- Expandable full table view ---
 st.markdown("✅ Edits are applied. You can download or expand the full updated dataset below.")
